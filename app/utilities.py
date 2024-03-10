@@ -11,22 +11,40 @@ logger = logging.getLogger(__name__)
 # Only for testing, remove after getting the github integration all squared away
 async def test_github():
     test_project_name = 'rjtruitt/CodeReviewBot'
-    gh_client = get_github_integration('test', 'test')
+    gh_client = get_github_integration('test', 'test', test_project_name)
+
+    # Fetch all open pull requests for the project
     pull_requests = gh_client.fetch_open_pull_requests(test_project_name)
-    print(pull_requests)
+
     for pr in pull_requests:
         pr_number = pr.get('number')
-        files = gh_client.fetch_files_from_pr(gh_client.fetch_pull_request(test_project_name,pr_number))
+        pull_request = gh_client.fetch_pull_request(test_project_name, pr_number)
+        files = gh_client.fetch_files_from_pr(pull_request, test_project_name)
+
         for file in files:
-            openai_integration = get_openai_integration()
-            print(file)
             if 'content' in file:
-                evaluate_code = 'Filename: {}\n Code:\n {}'.format(file.get('filename'), file.get('content'))
-                summary = openai_integration.summarize_text(evaluate_code)
-                gh_client.post_comment_on_pr(test_project_name, pr_number, summary.get('choices')[0].get('message').get('content'))
-                general_review = openai_integration.review_code(file.get('content'), file.get('language'))
-                gh_client.post_comment_on_pr(test_project_name, pr_number, general_review.get('choices')[0].get('message').get('content'))
+                await process_file(file, gh_client, test_project_name, pr_number)
+
     return 'OK'
+
+
+async def process_file(file, gh_client, test_project_name, pr_number):
+    openai_integration = get_openai_integration()
+
+    filename = file.get('filename')
+    content = file.get('content')
+    language = file.get('language')
+
+    evaluate_code = f'Filename: {filename}\nCode:\n{content}'
+    summary_response = openai_integration.summarize_text(evaluate_code)
+    summary = summary_response.get('choices')[0].get('message').get('content')
+    summary_comment = f'Filename: {filename}\nCode Summary:\n{summary}'
+    gh_client.post_comment_on_pr(test_project_name, pr_number, summary_comment)
+
+    review_response = openai_integration.review_code(content, language)
+    review = review_response.get('choices')[0].get('message').get('content')
+    review_comment = f'Filename: {filename}\nCode Review:\n{review}'
+    gh_client.post_comment_on_pr(test_project_name, pr_number, review_comment)
 
 
 async def add_comment_to_github_pr(payload: GithubComment):
@@ -77,7 +95,7 @@ async def handle_github_webhook(payload: GitHubWebhookPayload = Body(...)):
     gh_client = get_github_integration(user_login, repository_full_name)
 
     pr = gh_client.fetch_pull_request(repository_full_name, pr_number)
-    file_details = gh_client.fetch_files_from_pr(pr)
+    file_details = gh_client.fetch_files_from_pr(pr, payload.repository)
 
     feedback_messages = []
     for filename, content, language in file_details:

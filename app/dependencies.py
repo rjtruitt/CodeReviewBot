@@ -19,7 +19,7 @@ def get_openai_integration(api_key=config['openai']['api_key'], model=config['op
     return OpenAIIntegration(api_key, model)
 
 
-def get_github_integration(user_login: str, repo_full_name: str):
+def get_github_integration(user_login: str, repo_full_name: str, repository_name: str):
     """
     Get an instance of GitHubIntegration configured with the appropriate GitHub API key.
 
@@ -43,4 +43,4 @@ def get_github_integration(user_login: str, repo_full_name: str):
         logger.error("No GitHub API key found for integration")
         raise Exception("No GitHub API key found for integration")
 
-    return GitHubIntegration(github_token=github_api_key)
+    return GitHubIntegration(github_token=github_api_key, repository_name=repository_name)
