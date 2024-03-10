@@ -25,22 +25,20 @@ class OpenAIIntegration:
         self.language_config = config.get("languages", {})
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(1))
-    def summarize_text(self, text, temperature=0.7, max_tokens=1024):
+    def summarize_text(self, text, prompt_prefix="Summarize the following text"):
         """
         Generate a summary for the given text.
 
         Args:
             text (str): The text to be summarized.
-            temperature (float): Controls the randomness of the generated text.
-            max_tokens (int): Maximum number of tokens in the generated text.
-
+            prompt_prefix (str): Text prefix for prompt
         Returns:
             dict: A dictionary containing the summary response.
         """
         response = self.openai_client.chat.completions.create(
             model=self.model,
             messages=[
-                {"role": "user", "content": f"Summarize the following text:\n\n{text}"}
+                {"role": "user", "content": f"{prompt_prefix}:\n\n{text}"}
             ]
         )
 

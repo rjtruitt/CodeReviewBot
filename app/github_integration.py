@@ -1,3 +1,5 @@
+import os
+
 from fastapi import HTTPException
 from github import Github, GithubException, UnknownObjectException
 import logging
@@ -7,6 +9,27 @@ from unidiff import PatchSet
 from base64 import b64decode
 
 logger = logging.getLogger(__name__)
+
+
+def detect_language(filepath):
+    """
+    Detect the programming language of a file based on its extension.
+
+    Args:
+        filepath (str): Full path or name of the file.
+
+    Returns:
+        str: Detected programming language.
+    """
+    logger.debug("Detecting language of file: %s", filepath)
+    # Extract the filename from the filepath
+    filename = os.path.basename(filepath)
+
+    try:
+        lexer = guess_lexer_for_filename(filename, "")
+        return lexer.name
+    except ClassNotFound:
+        return "Unknown"
 
 
 class GitHubIntegration:
@@ -25,7 +48,7 @@ class GitHubIntegration:
                 self.github = Github(login_or_token=github_token)
 
             self.repository = self.github.get_repo(repository_name)
-            print(self.repository)
+
         except UnknownObjectException:
             raise HTTPException(status_code=404, detail=f"{repository_name}: Repository not found")
         except GithubException as e:
@@ -89,7 +112,7 @@ class GitHubIntegration:
             file_details.append({'filename': file.filename,
                                  'content': decoded_content,
                                  'patch': file.patch,
-                                 'file_type': self.detect_language(file.filename),
+                                 'file_type': detect_language(file.filename),
                                  'additions': file.additions,
                                  'deletions': file.deletions,
                                  'changed': file.changes,
@@ -201,20 +224,3 @@ class GitHubIntegration:
                 changed_files.append(file_changes)
 
         return changed_files
-
-    def detect_language(self, filename):
-        """
-        Detect the programming language of a file based on its extension.
-
-        Args:
-            filename (str): Name of the file.
-
-        Returns:
-            str: Detected programming language.
-        """
-        logger.debug("Detecting language of file: %s", filename)
-        try:
-            lexer = guess_lexer_for_filename(filename, "")
-            return lexer.name
-        except ClassNotFound:
-            return "Unknown"
