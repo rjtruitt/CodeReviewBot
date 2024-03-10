@@ -2,6 +2,7 @@ from github import Github
 import logging
 from pygments.lexers import guess_lexer_for_filename
 from pygments.util import ClassNotFound
+from unidiff import PatchSet
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +146,75 @@ class GitHubIntegration:
             if content.type == "file":
                 file_details.append((content.name, content.decoded_content.decode()))
         return file_details
+
+    from github import Github, InputGitTreeElement
+    import logging
+    from pygments.lexers import guess_lexer_for_filename
+    from pygments.util import ClassNotFound
+
+    logger = logging.getLogger(__name__)
+
+    def post_comment_on_pr(self, repo_name, pr_number, comment):
+        """
+        Post a comment on a pull request.
+
+        Args:
+            repo_name (str): Full name of the repository (e.g., "owner/repo").
+            pr_number (int): Number of the pull request.
+            comment (str): The comment text to post.
+        """
+        logger.info("Posting comment on pull request #%d in repository: %s", pr_number, repo_name)
+        repo = self.github.get_repo(repo_name)
+        pull_request = repo.get_pull(pr_number)
+        pull_request.create_issue_comment(comment)
+
+    def post_comment_on_commit(self, repo_name, commit_sha, path, position, body):
+        """
+        Post a comment on a specific line of a file in a commit, often used in the context of a review in a pull request.
+
+        Args:
+            repo_name (str): Full name of the repository (e.g., "owner/repo").
+            commit_sha (str): SHA of the commit where the comment should be posted.
+            path (str): The file path relative to the repository root.
+            position (int): The line index in the diff where the comment should be placed.
+            body (str): The comment text to post.
+        """
+        logger.info("Posting comment on file '%s' at position %d in commit %s of repository: %s", path, position,
+                    commit_sha, repo_name)
+        repo = self.github.get_repo(repo_name)
+        commit = repo.get_commit(commit_sha)
+        commit.create_comment(body, path, position)
+
+    def get_pr_diffs(self, repo_name, pr_number):
+        """
+        Fetch diff data for all files in a pull request and parse the diffs to extract changed lines.
+
+        Args:
+            repo_name (str): Full name of the repository (e.g., "owner/repo").
+            pr_number (int): Number of the pull request.
+
+        Returns:
+            list: A list of dictionaries, each representing a file with changes. Each dictionary includes
+                  the filename and lists of added or modified lines.
+        """
+        logger.info("Fetching diff for pull request #%d from repository: %s", pr_number, repo_name)
+        repo = self.github.get_repo(repo_name)
+        pr = repo.get_pull(pr_number)
+        diffs = pr.get_files()
+
+        changed_files = []
+
+        for diff in diffs:
+            patch_set = PatchSet(diff.patch)
+            for patched_file in patch_set:
+                file_changes = {
+                    'filename': patched_file.path,
+                    'added_lines': [line.value for hunk in patched_file for line in hunk if line.is_added],
+                    'modified_lines': [line.value for hunk in patched_file for line in hunk if line.is_modified]
+                }
+                changed_files.append(file_changes)
+
+        return changed_files
 
     def detect_language(self, filename):
         """
