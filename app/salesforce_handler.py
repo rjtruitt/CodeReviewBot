@@ -42,21 +42,18 @@ def detect_salesforce_language(filepath):
     return None
 
 
-lwc_code_prompt = """Review the Salesforce LWC code below for standards adherence. Highlight violations with existing 
-code snippets and provide suggested corrections. Focus on:
-- Braces: Stroustrup style.
-- Indentation: 4 spaces, limit to 100 columns.
-- Whitespace: Around {{, operators, ,.
-- Naming: CamelCase for classes, lowerCamelCase for methods/vars, UPPER_CASE for constants.
-- Declarations: Use const/let.
-- Arrays: Prefer list initialization style.
-- Docs: Java block comments for public items.
-- Equality: Use ===.
-- HTML & External: Adhere to accessibility and copyright.
+lwc_code_prompt = """Review the provided Salesforce LWC code for adherence to coding standards. Focus on:
+Class Name & Variable Declaration: CamelCase for class name, use let or const for variable declaration.
+Constants & Naming Convention: UPPERCASE with underscores for constants, verify naming conventions.
+Method Declaration & Braces Style: camelCase for method names, ensure Stroustrup braces style.
+Indentation & Semicolons: 4-space indentation, ensure semicolons at statement ends.
+Unused Variables: Identify & remove unused variables.
+Comments & Formatting: Clear, concise comments, proper code formatting.
+Method Access Specifiers: Consistent method access specifiers.
+Provide snippets highlighting violations with the existing code and suggest corrections for each aspect.
 """
 
-lwc_test_code_prompt = """Review Salesforce LWC test code for standards adherence. Highlight violations with existing 
-code snippets and provide suggested corrections. Focus on:
+lwc_test_code_prompt = """Review Salesforce LWC test code for standards adherence.  Focus on:
 - File Structure: `__tests__` in root/src or alongside in force-app, exclude from `.forceignore`.
 - Naming: Kebab-case tests, `.test.js` suffix.
 - Test Structure: Imports order (Salesforce -> custom -> Apex), mocks after imports, `describe` starts, `afterEach` clears, separate `createElement` per scenario.
@@ -68,9 +65,10 @@ code snippets and provide suggested corrections. Focus on:
 - Emails: Use `@example.com`.
 - No Magic Numbers: Use constants.
 - Console: Remove `console.*` before prod.
+Provide snippets highlighting violations with the existing code and suggest corrections for each aspect.
 """
 
-apex_code_prompt = """Review Salesforce Apex code below for standards adherence. Highlight violations with existing code snippets and provide suggested corrections. Focus on:
+apex_code_prompt = """Review Salesforce Apex code below for standards adherence.  Focus on:
 - Braces: Stroustrup style with no line breaks before the opening brace and a line break after the closing brace.
 - Indentation: 4 spaces, limit to 100 columns.
 - Whitespace: Around {, operators, ,.
@@ -89,6 +87,7 @@ apex_code_prompt = """Review Salesforce Apex code below for standards adherence.
 - Annotations: List annotations on separate lines after the documentation block.
 - Numeric Literals: Use uppercase L suffix for long-valued integer literals.
 - Javadoc: Follow standard conventions for formatting Javadoc comments.
+Provide snippets highlighting violations with the existing code and suggest corrections for each aspect.
 """
 
 apex_test_prompt = """Review Salesforce Apex test code for standards adherence. Focus on:
@@ -104,6 +103,7 @@ apex_test_prompt = """Review Salesforce Apex test code for standards adherence. 
 - Dependencies: Reduce external dependencies, mock external services.
 - Maintainability: Write readable and maintainable code, refactor as needed.
 - Linting: Ensure code passes static analysis, address any issues.
+Provide snippets highlighting violations with the existing code and suggest corrections for each aspect.
 """
 
 sf_language_to_prompt = {

@@ -26,7 +26,7 @@ class OpenAIIntegration:
         self.language_config = config.get("languages", {})
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(1))
-    def summarize_text(self, text, prompt_prefix="Summarize the following text"):
+    def summarize_text(self, text, prompt_prefix="Summarize the following code. Not the prompt before the code."):
         """
         Generate a summary for the given text.
 
@@ -104,6 +104,7 @@ class OpenAIIntegration:
 
             prompt = prompt_template.format(prompt_prefix=prompt_prefix, language=language, code=code)
 
+        print(prompt)
         response = self.openai_client.chat.completions.create(
             model=self.model,
             temperature=temperature,
