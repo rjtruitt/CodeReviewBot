@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 config = get_config()
 
 
-def get_openai_integration(api_key=config['openai']['api_key'], model=config['openai']['default_model']):
+def get_openai_integration(api_key=None, model=None):
     """
     Get an instance of OpenAIIntegration.
 
@@ -16,10 +16,14 @@ def get_openai_integration(api_key=config['openai']['api_key'], model=config['op
         OpenAIIntegration: An instance of the OpenAIIntegration class.
     """
     logger.info("Initializing OpenAI integration")
+    if api_key is None:
+        api_key = config['openai']['api_key']
+    if model is None:
+        model = config['openai']['default_model']
     return OpenAIIntegration(api_key, model)
 
 
-def get_github_integration(user_login: str, repo_full_name: str, repository_name: str):
+def get_github_integration(user_login: str, repo_full_name: str):
     """
     Get an instance of GitHubIntegration configured with the appropriate GitHub API key.
 
@@ -43,4 +47,4 @@ def get_github_integration(user_login: str, repo_full_name: str, repository_name
         logger.error("No GitHub API key found for integration")
         raise Exception("No GitHub API key found for integration")
 
-    return GitHubIntegration(github_token=github_api_key, repository_name=repository_name)
+    return GitHubIntegration(github_token=github_api_key, repository_name=repo_full_name)

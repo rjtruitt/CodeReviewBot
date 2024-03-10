@@ -9,6 +9,7 @@ from app.config_loader import get_config
 
 config = get_config()
 
+
 class OpenAIIntegration:
     def __init__(self, api_key, model):
         """
@@ -69,7 +70,7 @@ class OpenAIIntegration:
         return response_dict
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(1))
-    def review_code(self, code, language="Python", temperature=0.7, max_tokens=2048):
+    def review_code(self, code, language="Python", is_diff=False, temperature=0.7, max_tokens=2048):
         """
         Generate a review for the given code snippet.
 
@@ -82,18 +83,21 @@ class OpenAIIntegration:
         Returns:
             str: The review feedback for the code snippet.
         """
-        prompt_template = self.language_config.get(language, {}).get("prompt_template")
 
-        if prompt_template is None:
-            prompt_template = (
-                "Here is a snippet of {language} code. Please review it for readability, "
-                "maintainability, security, and adherence to best practices. Highlight any areas that "
-                "could be improved or might contain potential bugs, and suggest specific improvements "
-                "or alternatives. Avoid deep technical explanations and focus on practical, actionable "
-                "advice. Include file names and line numbers for each commeent:\n {code}"
-            )
+        prompt_prefix = "This is a diff from GitHub with lines prefixed with + for additions and - for deletions." \
+            if is_diff else "This is a full file from a Pull Request."
 
-        prompt = prompt_template.format(language=language, code=code)
+        prompt_template = self.language_config.get(language, {}).get(
+            "prompt_template",
+            "{prompt_prefix} It is written in {language}. Please review it for readability, "
+            "maintainability, security, and adherence to best practices. Highlight any areas that "
+            "could be improved or might contain potential bugs, and suggest specific improvements "
+            "or alternatives. Avoid deep technical explanations and focus on practical, actionable "
+            "advice. Make your response idiomatic and include code snippets for each comment to help "
+            "identify what needs to be changed:\n{code}"
+        )
+
+        prompt = prompt_template.format(prompt_prefix=prompt_prefix, language=language, code=code)
 
         response = self.openai_client.chat.completions.create(
             model=self.model,

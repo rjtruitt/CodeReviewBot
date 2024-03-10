@@ -1,50 +1,51 @@
 import json
 import logging
 from fastapi import HTTPException, Body
+
+from app.config_loader import get_config
 from app.dependencies import get_github_integration, get_openai_integration
-from app.models.github_webhook_schema import GitHubWebhookPayload, GithubComment
+from app.models.github_webhook_schema import GitHubWebhookPayload, GithubComment, FullRepoReview
 from app.models.prompt_schema import PromptPayload
 
 logger = logging.getLogger(__name__)
+config = get_config()
 
 
-# Only for testing, remove after getting the github integration all squared away
-async def test_github():
-    test_project_name = 'rjtruitt/CodeReviewBot'
-    gh_client = get_github_integration('test', 'test', test_project_name)
+async def review_all_open_pull_requests(payload: FullRepoReview):
+    gh_client = get_github_integration(payload.user_login, payload.repository_name)
 
-    # Fetch all open pull requests for the project
-    pull_requests = gh_client.fetch_open_pull_requests(test_project_name)
+    pull_requests = gh_client.fetch_open_pull_requests()
 
     for pr in pull_requests:
-        pr_number = pr.get('number')
-        pull_request = gh_client.fetch_pull_request(test_project_name, pr_number)
-        files = gh_client.fetch_files_from_pr(pull_request, test_project_name)
-
+        files = gh_client.fetch_files_from_pr(pr)
         for file in files:
-            if 'content' in file:
-                await process_file(file, gh_client, test_project_name, pr_number)
+            await process_file(file, gh_client, payload.repository_name, pr.number, payload.gpt_model,
+                               payload.process_diffs_only)
 
     return 'OK'
 
 
-async def process_file(file, gh_client, test_project_name, pr_number):
-    openai_integration = get_openai_integration()
+async def process_file(file, gh_client, repository_name, pr_number, model: None, process_diffs_only: bool = False):
+    openai_integration = get_openai_integration(model=model)
 
-    filename = file.get('filename')
-    content = file.get('content')
-    language = file.get('language')
+    filename = file['filename']
+    content = file['content']
+    patch = file.get('patch', '')
+    language = file.get('language', 'Plain text')
+    current_model = model or config['openai']['default_model']
 
-    evaluate_code = f'Filename: {filename}\nCode:\n{content}'
-    summary_response = openai_integration.summarize_text(evaluate_code)
-    summary = summary_response.get('choices')[0].get('message').get('content')
-    summary_comment = f'Filename: {filename}\nCode Summary:\n{summary}'
-    gh_client.post_comment_on_pr(test_project_name, pr_number, summary_comment)
+    summarize_code = f'Filename: {filename}\nLanguage: {language}\nGPT_Model: {current_model}\nCode:\n{content}'
 
-    review_response = openai_integration.review_code(content, language)
-    review = review_response.get('choices')[0].get('message').get('content')
-    review_comment = f'Filename: {filename}\nCode Review:\n{review}'
-    gh_client.post_comment_on_pr(test_project_name, pr_number, review_comment)
+    summary_response = openai_integration.summarize_text(summarize_code)
+    summary = summary_response['choices'][0]['message']['content']
+
+    code_to_review = patch if process_diffs_only else content
+    review_response = openai_integration.review_code(code_to_review, language, process_diffs_only)
+    review = review_response['choices'][0]['message']['content']
+
+    # Combine summary and review into a single comment
+    comment_to_post = f'{summary}\n\nCode Review (diff={process_diffs_only}):\n{review}'
+    gh_client.post_comment_on_pr(repository_name, pr_number, comment_to_post)
 
 
 async def add_comment_to_github_pr(payload: GithubComment):

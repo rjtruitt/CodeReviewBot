@@ -1,4 +1,5 @@
-from github import Github
+from fastapi import HTTPException
+from github import Github, GithubException, UnknownObjectException
 import logging
 from pygments.lexers import guess_lexer_for_filename
 from pygments.util import ClassNotFound
@@ -17,37 +18,28 @@ class GitHubIntegration:
             github_token (str): GitHub API token.
             base_url (str, optional): Base URL of the GitHub instance for GitHub Enterprise.
         """
-        if base_url:
-            self.github = Github(base_url=base_url, login_or_token=github_token)
-        else:
-            self.github = Github(login_or_token=github_token)
-        self.repository_name = self.github.get_repo(repository_name)
+        try:
+            if base_url:
+                self.github = Github(base_url=base_url, login_or_token=github_token)
+            else:
+                self.github = Github(login_or_token=github_token)
 
-    def set_repository_name(self, repo_name):
-        self.repository_name = self.github.get_repo(repo_name)
+            self.repository = self.github.get_repo(repository_name)
+            print(self.repository)
+        except UnknownObjectException:
+            raise HTTPException(status_code=404, detail=f"{repository_name}: Repository not found")
+        except GithubException as e:
+            raise HTTPException(status_code=500, detail="GitHub API error")
 
-    def fetch_open_pull_requests(self, repo_name):
+    def fetch_open_pull_requests(self):
         """
         Fetch all open pull requests from a GitHub repository.
 
-        Args:
-            repo_name (str): Full name of the repository (e.g., "owner/repo").
-
         Returns:
-            list: A list of open pull requests (as dictionaries).
+            list: A list of open pull requests
         """
-        logger.info("Fetching open pull requests from GitHub repository: %s", repo_name)
-        pull_requests = self.repository_name.get_pulls(state='open')
-        pull_requests_data = []
-        for pr in pull_requests:
-            pr_dict = {
-                "number": pr.number,
-                "title": pr.title,
-                "url": pr.html_url,
-                # Add more attributes as needed
-            }
-            pull_requests_data.append(pr_dict)
-        return pull_requests_data
+        logger.info("Fetching open pull requests from GitHub repository: %s", self.repository.full_name)
+        return self.repository.get_pulls(state='open')
 
     def fetch_pull_request(self, repo_name, pr_number):
         """
@@ -61,7 +53,7 @@ class GitHubIntegration:
             github.PullRequest: A GitHub PullRequest object.
         """
         logger.info("Fetching pull request from GitHub")
-        return self.repository_name.get_pull(pr_number)
+        return self.repository.get_pull(pr_number)
 
     def fetch_commit(self, repo_name, commit_sha):
         """
@@ -75,9 +67,9 @@ class GitHubIntegration:
             github.Commit.Commit: A GitHub Commit object.
         """
         logger.info("Fetching commit from GitHub")
-        return self.repository_name.get_commit(commit_sha)
+        return self.repository.get_commit(commit_sha)
 
-    def fetch_files_from_pr(self, pr, repo):
+    def fetch_files_from_pr(self, pr):
         """
         Fetch files from a given pull request and detect their language.
 
@@ -91,7 +83,7 @@ class GitHubIntegration:
         files = pr.get_files()
         file_details = []
         for file in files:
-            file_content = self.repository_name.get_contents(file.filename, ref=pr.base.sha).content
+            file_content = self.repository.get_contents(file.filename, ref=pr.base.sha).content
             decoded_content = b64decode(file_content).decode('utf-8')  # Decode from Base64 and convert bytes to string
 
             file_details.append({'filename': file.filename,
@@ -119,17 +111,17 @@ class GitHubIntegration:
         """
         logger.info("Fetching repository information for: %s", repo_name)
         return {
-            "full_name": self.repository_name.full_name,
-            "description": self.repository_name.description,
-            "html_url": self.repository_name.html_url,
-            "created_at": self.repository_name.created_at.isoformat(),
-            "updated_at": self.repository_name.updated_at.isoformat(),
-            "default_branch": self.repository_name.default_branch,
-            "fork": self.repository_name.fork,
-            "forks_count": self.repository_name.forks_count,
-            "open_issues_count": self.repository_name.open_issues_count,
-            "watchers_count": self.repository_name.watchers_count,
-            "language": self.repository_name.language,
+            "full_name": self.repository.full_name,
+            "description": self.repository.description,
+            "html_url": self.repository.html_url,
+            "created_at": self.repository.created_at.isoformat(),
+            "updated_at": self.repository.updated_at.isoformat(),
+            "default_branch": self.repository.default_branch,
+            "fork": self.repository.fork,
+            "forks_count": self.repository.forks_count,
+            "open_issues_count": self.repository.open_issues_count,
+            "watchers_count": self.repository.watchers_count,
+            "language": self.repository.language,
         }
 
     def fetch_files_in_folder(self, repo_name, folder_path):
@@ -144,7 +136,7 @@ class GitHubIntegration:
             list: A list of tuples containing file details (filename, content).
         """
         logger.info("Fetching files from folder: %s", folder_path)
-        contents = self.repository_name.get_contents(folder_path)
+        contents = self.repository.get_contents(folder_path)
         file_details = []
         for content in contents:
             if content.type == "file":
@@ -161,7 +153,7 @@ class GitHubIntegration:
             comment (str): The comment text to post.
         """
         logger.info("Posting comment on pull request #%d in repository: %s", pr_number, repo_name)
-        pull_request = self.repository_name.get_pull(pr_number)
+        pull_request = self.repository.get_pull(pr_number)
         pull_request.create_issue_comment(comment)
 
     def post_comment_on_commit(self, repo_name, commit_sha, path, position, body):
@@ -177,7 +169,7 @@ class GitHubIntegration:
         """
         logger.info("Posting comment on file '%s' at position %d in commit %s of repository: %s", path, position,
                     commit_sha, repo_name)
-        commit = self.repository_name.get_commit(commit_sha)
+        commit = self.repository.get_commit(commit_sha)
         commit.create_comment(body, path, position)
 
     def get_pr_diffs(self, repo_name, pr_number):
@@ -193,7 +185,7 @@ class GitHubIntegration:
                   the filename and lists of added or modified lines.
         """
         logger.info("Fetching diff for pull request #%d from repository: %s", pr_number, repo_name)
-        pr = self.repository_name.get_pull(pr_number)
+        pr = self.repository.get_pull(pr_number)
         diffs = pr.get_files()
 
         changed_files = []
