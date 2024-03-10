@@ -33,7 +33,7 @@ async def generate_pr_summary(payload: FullRepoReview):
 
             summary_response = openai_integration.summarize_text(text_to_summarize, prompt)
             summary_content = summary_response['choices'][0]['message']['content']
-            print(summary_content)
+
             filename = file['filename']
             language = file.get('file_type', 'Plain text')
             file_summaries.append(f'Filename: {filename}\nLanguage: {language}\nSummary:\n{summary_content}')
