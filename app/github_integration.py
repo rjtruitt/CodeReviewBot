@@ -113,7 +113,7 @@ class GitHubIntegration:
         files = pr.get_files()
         file_details = []
         for file in files:
-            file_content = self.repository.get_contents(file.filename, ref=pr.base.sha).content
+            file_content = self.repository.get_contents(file.filename, ref=pr.head.sha).content
             decoded_content = b64decode(file_content).decode('utf-8')  # Decode from Base64 and convert bytes to string
 
             file_details.append({'filename': file.filename,

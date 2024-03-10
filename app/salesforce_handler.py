@@ -14,8 +14,7 @@ def detect_salesforce_language(filepath):
     """
     directory = os.path.dirname(filepath)
     filename = os.path.basename(filepath)
-    directory_parts = directory.split(os.sep)
-
+    directory_parts = directory.split('/')
     # Ensure we are within a Salesforce project
     if 'force-app' in directory_parts:
         # Salesforce LWC Jest Test
