@@ -76,7 +76,6 @@ async def process_file(file, gh_client, repository_name, pr_number, model: None,
     content = file['content']
     patch = file.get('patch', '')
     language = file.get('file_type', 'Plain text')
-    print(language)
     current_model = model or config['openai']['default_model']
 
     summary_response = openai_integration.summarize_text(content)
