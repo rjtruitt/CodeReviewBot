@@ -6,6 +6,7 @@ from tenacity import (
 )
 
 from app.config_loader import get_config
+from app.salesforce_handler import sf_language_to_prompt
 
 config = get_config()
 
@@ -81,21 +82,27 @@ class OpenAIIntegration:
         Returns:
             str: The review feedback for the code snippet.
         """
+        # TODO: add a more dynamic way of handling applications and their specific coding languages
+        if language.startswith("Salesforce"):
+            prompt_prefix = sf_language_to_prompt.get(language)
+            full_or_diff = "This is a diff from GitHub with lines prefixed with + for additions and - for deletions." \
+                if is_diff else "This is a full file from a Pull Request."
+            prompt = f'{full_or_diff}\n{prompt_prefix}\nCode:\n{code}'
+        else:
+            prompt_prefix = "This is a diff from GitHub with lines prefixed with + for additions and - for deletions." \
+                if is_diff else "This is a full file from a Pull Request."
 
-        prompt_prefix = "This is a diff from GitHub with lines prefixed with + for additions and - for deletions." \
-            if is_diff else "This is a full file from a Pull Request."
+            prompt_template = self.language_config.get(language, {}).get(
+                "prompt_template",
+                "{prompt_prefix} It is written in {language}. Please review it for readability, "
+                "maintainability, security, and adherence to best practices. Highlight any areas that "
+                "could be improved or might contain potential bugs, and suggest specific improvements "
+                "or alternatives. Avoid deep technical explanations and focus on practical, actionable "
+                "advice. Make your response idiomatic and include code snippets for each comment to help "
+                "identify what needs to be changed:\n{code}"
+            )
 
-        prompt_template = self.language_config.get(language, {}).get(
-            "prompt_template",
-            "{prompt_prefix} It is written in {language}. Please review it for readability, "
-            "maintainability, security, and adherence to best practices. Highlight any areas that "
-            "could be improved or might contain potential bugs, and suggest specific improvements "
-            "or alternatives. Avoid deep technical explanations and focus on practical, actionable "
-            "advice. Make your response idiomatic and include code snippets for each comment to help "
-            "identify what needs to be changed:\n{code}"
-        )
-
-        prompt = prompt_template.format(prompt_prefix=prompt_prefix, language=language, code=code)
+            prompt = prompt_template.format(prompt_prefix=prompt_prefix, language=language, code=code)
 
         response = self.openai_client.chat.completions.create(
             model=self.model,

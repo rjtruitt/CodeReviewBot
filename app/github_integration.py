@@ -8,12 +8,14 @@ from pygments.util import ClassNotFound
 from unidiff import PatchSet
 from base64 import b64decode
 
+from app.salesforce_handler import detect_salesforce_language
+
 logger = logging.getLogger(__name__)
 
 
 def detect_language(filepath):
     """
-    Detect the programming language of a file based on its extension.
+    Detect the programming language of a file, integrating Salesforce-specific handling.
 
     Args:
         filepath (str): Full path or name of the file.
@@ -22,9 +24,14 @@ def detect_language(filepath):
         str: Detected programming language.
     """
     logger.debug("Detecting language of file: %s", filepath)
-    # Extract the filename from the filepath
     filename = os.path.basename(filepath)
 
+    # Try Salesforce-specific detection first
+    sf_language = detect_salesforce_language(filepath)
+    if sf_language:
+        return sf_language
+
+    # General language detection
     try:
         lexer = guess_lexer_for_filename(filename, "")
         return lexer.name
