@@ -2,17 +2,39 @@ import json
 import logging
 from fastapi import HTTPException, Body
 from app.dependencies import get_github_integration, get_openai_integration
-from app.models.github_webhook_schema import GitHubWebhookPayload
+from app.models.github_webhook_schema import GitHubWebhookPayload, GithubComment
 from app.models.prompt_schema import PromptPayload
 
 logger = logging.getLogger(__name__)
 
+
 # Only for testing, remove after getting the github integration all squared away
 async def test_github():
+    test_project_name = 'rjtruitt/CodeReviewBot'
     gh_client = get_github_integration('test', 'test')
-    return gh_client.fetch_files_from_pr(gh_client.fetch_pull_request('rjtruitt/CodeReviewBot', 1))
+    pull_requests = gh_client.fetch_open_pull_requests(test_project_name)
+    print(pull_requests)
+    for pr in pull_requests:
+        pr_number = pr.get('number')
+        files = gh_client.fetch_files_from_pr(gh_client.fetch_pull_request(test_project_name,pr_number))
+        for file in files:
+            openai_integration = get_openai_integration()
+            print(file)
+            if 'content' in file:
+                evaluate_code = 'Filename: {}\n Code:\n {}'.format(file.get('filename'), file.get('content'))
+                summary = openai_integration.summarize_text(evaluate_code)
+                gh_client.post_comment_on_pr(test_project_name, pr_number, summary.get('choices')[0].get('message').get('content'))
+                general_review = openai_integration.review_code(file.get('content'), file.get('language'))
+                gh_client.post_comment_on_pr(test_project_name, pr_number, general_review.get('choices')[0].get('message').get('content'))
+    return 'OK'
 
-#also using this for testing, just passing prompts to make sure the openai integration works
+
+async def add_comment_to_github_pr(payload: GithubComment):
+    gh_client = get_github_integration('test', 'test')
+    return gh_client.post_comment_on_pr(payload.repository, payload.pr_num, payload.comment)
+
+
+# also using this for testing, just passing prompts to make sure the openai integration works
 async def process_prompt(payload: PromptPayload = Body(...)):
     """
     Processes a prompt by generating a summary or response using the OpenAI API.
@@ -24,9 +46,8 @@ async def process_prompt(payload: PromptPayload = Body(...)):
         dict: A dictionary containing the processed prompt result.
     """
     logger.debug("Received prompt request: %s", payload.prompt)
-    # Assuming get_openai_integration() provides an instance of OpenAIIntegration with a summarize_text method
     openai_integration = get_openai_integration()
-    summary = await openai_integration.summarize_text(payload.prompt)
+    summary = openai_integration.summarize_text(payload.prompt)
 
     return {"summary": summary}
 

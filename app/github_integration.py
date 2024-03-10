@@ -147,13 +147,6 @@ class GitHubIntegration:
                 file_details.append((content.name, content.decoded_content.decode()))
         return file_details
 
-    from github import Github, InputGitTreeElement
-    import logging
-    from pygments.lexers import guess_lexer_for_filename
-    from pygments.util import ClassNotFound
-
-    logger = logging.getLogger(__name__)
-
     def post_comment_on_pr(self, repo_name, pr_number, comment):
         """
         Post a comment on a pull request.
