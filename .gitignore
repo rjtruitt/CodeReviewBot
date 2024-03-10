@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE / editor specific files
+.idea/
+.vscode/
+
+# Compiled Python files
+*.pyc
+
+# Environment-related files
+.env
+.env.*
+venv/
+.venv/
+
+# Dependency directories
+env/
+bin/
+lib/
+node_modules/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+app.log

@@ -1,0 +1,45 @@
+# Global settings for the Code Review Bot
+global:
+  log_level: "INFO"  # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+
+operation_mode:
+  mode: "daemon"  # Options: "daemon", "github_action"
+  webhook_server:
+    host: "0.0.0.0"
+    port: 8080
+
+# OpenAI settings for generating code reviews
+openai:
+  api_key: "MY_API_KEY"
+  default_model: "gpt-3.5-turbo"  # Default model for code review
+  default_temperature: 0.7  # Default creativity/variation in responses
+
+# GitHub settings for both Cloud and Enterprise instances
+# TODO add github enterprise items
+github:
+  default_api_key: "MY_GITHUB_TOKEN"
+  user_keys:
+    alice:
+      api_key: "alice_github_api_key"
+    bob:
+      api_key: "bob_github_api_key"
+  repo_owner_keys:
+    octocat:
+      api_key: "octocat_github_api_key"
+
+# Language-specific configurations for reviews
+languages:
+  Python:
+    model: "gpt-3.5-turbo"
+    temperature: 0.7
+    prompt_template: "Here is a snippet of Python code. Please review it for readability, ..."
+  JavaScript:
+    model: "gpt-3.5-turbo"
+    temperature: 0.7
+    prompt_template: "Here is a snippet of JavaScript code. Please review it for readability, ..."
+
+# Feature toggles for enabling/disabling specific functionalities
+features:
+  use_custom_prompts: true  # Whether to use custom prompts based on language/repo
+  enable_security_checks: true  # Enable additional security checks on code reviews
+  enable_webhooks: true  # Enable GitHub webhooks for real-time pull request updates
