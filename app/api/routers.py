@@ -22,31 +22,31 @@ def get_status():
 
 
 @router.post("/prompt/")
-async def process_prompt_endpoint(payload: PromptPayload):
-    return await process_prompt(payload)
+def process_prompt_endpoint(payload: PromptPayload):
+    return process_prompt(payload)
 
 
 @router.post("/github-webhook/", response_model=dict)
-async def github_webhook_endpoint(payload: GitHubWebhookPayload):
-    return await handle_github_webhook(payload)
+def github_webhook_endpoint(payload: GitHubWebhookPayload):
+    return handle_github_webhook(payload)
 
 
 @router.post("/review_all_open_PRs/")
-async def review_all_open_pull_requests_endpoint(payload: FullRepoReview = Body(...)):
+def review_all_open_pull_requests_endpoint(payload: FullRepoReview = Body(...)):
     processor = PRProcessor(user_login=payload.user_login, repo_full_name=payload.repository_name,
                             gpt_model=payload.gpt_model)
-    return await processor.review_all_open_pull_requests(payload.process_diffs_only)
+    return processor.review_all_open_pull_requests(payload.process_diffs_only)
 
 
 @router.post("/generate_PR_summary/")
-async def generate_pr_summary_endpoint(payload: FullRepoReview = Body(...)):
+def generate_pr_summary_endpoint(payload: FullRepoReview = Body(...)):
     processor = PRProcessor(user_login=payload.user_login, repo_full_name=payload.repository_name,
                             gpt_model=payload.gpt_model)
-    return await processor.generate_pr_summary(payload.pr_num)
+    return processor.generate_all_prs_summary(payload.process_diffs_only)
 
 
 @router.post("/add_github_comment/")
-async def add_github_comment(payload: GithubComment = Body(...)):
+def add_github_comment(payload: GithubComment = Body(...)):
     processor = PRProcessor(user_login=payload.user_login, repo_full_name=payload.repository_name, gpt_model="")
-    await processor.gh_client.post_comment_on_pr(payload.pr_num, payload.comment)
+    processor.gh_client.post_comment_on_pr(payload.pr_num, payload.comment)
     return {"message": "Comment added successfully."}

@@ -1,8 +1,12 @@
+import logging
+
 import openai
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 
 from app.config_loader import get_config
 from app.services.salesforce.salesforce_handler import sf_language_to_prompt
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAIIntegration:
@@ -10,7 +14,24 @@ class OpenAIIntegration:
         self.config = get_config()
         self.api_key = api_key or self.config['openai']['api_key']
         self.model = model or self.config['openai']['default_model']
-        openai.api_key = self.api_key
+        self.openai_client = openai.OpenAI(api_key=self.api_key)
+
+    def gpt_prompt(self, text):
+        """
+        Generate a summary for the provided text using the OpenAI API.
+
+        Args:
+            text (str): The text to summarize.
+            prompt_prefix (str): The prefix to add to the prompt for context.
+
+        Returns:
+            dict: A dictionary containing the OpenAI API response.
+        """
+        response = self.openai_client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": text}]
+        )
+        return self._parse_response(response)
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(3))
     def summarize_text(self, text, prompt_prefix="Summarize the following code. Not the prompt before the code."):
@@ -53,6 +74,7 @@ class OpenAIIntegration:
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}]
         )
+        logger.debug(response)
         return self._parse_response(response)
 
     def _generate_code_review_prompt(self, code, language, is_diff):
@@ -99,8 +121,8 @@ class OpenAIIntegration:
             "created": response.created,
             "model": response.model,
             "choices": [{
-                "text": choice["message"]["content"],
-                "index": choice["index"],
-                "finish_reason": choice.get("finish_reason", "")
+                "text": choice.message.content,
+                "index": choice.index,
+                "finish_reason": choice.finish_reason
             } for choice in response.choices]
         }

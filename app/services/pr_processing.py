@@ -23,7 +23,7 @@ class PRProcessor:
         self.gh_client = GitHubIntegration(user_login=user_login, repo_full_name=repo_full_name)
         self.openai_integration = OpenAIIntegration(model=gpt_model)
 
-    async def generate_pr_summary(self, pr_number: int, process_diffs_only: bool = False) -> Dict:
+    def generate_pr_summary(self, pr_number: int, process_diffs_only: bool = False) -> Dict:
         """
         Generates a summary for a specified pull request.
 
@@ -34,12 +34,12 @@ class PRProcessor:
         Returns:
             Dict: A dictionary containing the PR number and its summary.
         """
-        pr_summaries = await self._generate_pr_summary(pr_number, process_diffs_only)
+        pr_summaries = self._generate_pr_summary(pr_number, process_diffs_only)
         summary_content = pr_summaries[0]['Summary']
-        await self.gh_client.post_comment_on_pr(pr_number, summary_content)
+        self.gh_client.post_comment_on_pr(pr_number, summary_content)
         return {"PR #": pr_number, "Summary": summary_content}
 
-    async def generate_all_prs_summary(self, process_diffs_only: bool = False) -> List[Dict]:
+    def generate_all_prs_summary(self, process_diffs_only: bool = False) -> List[Dict]:
         """
         Generates summaries for all open pull requests.
 
@@ -49,38 +49,64 @@ class PRProcessor:
         Returns:
             List[Dict]: A list of dictionaries, each containing a PR number and its summary.
         """
-        open_prs = await self.gh_client.fetch_open_pull_requests()
+        open_prs = self.gh_client.fetch_open_pull_requests()
         all_summaries = []
         for pr in open_prs:
-            summaries = await self._generate_pr_summary(pr.number, process_diffs_only)
+            summaries = self._generate_pr_summary(pr.number, process_diffs_only)
             all_summaries.extend(summaries)
             for summary in summaries:
-                await self.gh_client.post_comment_on_pr(pr.number, summary['Summary'])
+                self.gh_client.post_comment_on_pr(pr.number, summary['Summary'])
         return all_summaries
 
-    async def _generate_pr_summary(self, pr_number: int, process_diffs_only: bool) -> List[Dict]:
+    def _generate_pr_summary(self, pr_number: int, process_diffs_only: bool) -> List[Dict]:
         """
         Helper method to fetch files from a PR, summarize and optionally compress them.
         """
-        files = await self.gh_client.fetch_files_from_pr(pr_number)
-        file_summaries = [await self._summarize_file(file, process_diffs_only, True) for file in files]
+        files = self.gh_client.fetch_files_from_pr(pr_number)
+        filtered_files = [
+            file for file in files
+            if ((process_diffs_only and file.get('patch')) or (not process_diffs_only and file.get('content')))
+        ]
+        file_summaries = [
+            f"Filename: {file['filename']}\n{self._summarize_file(file, process_diffs_only, True)}"
+            for file in filtered_files
+        ]
         combined_file_summaries = "\nNext PR File\n".join(file_summaries)
-        pr_summary_content = await self._create_comprehensive_summary(combined_file_summaries, process_diffs_only)
+        pr_summary_content = self._create_comprehensive_summary(combined_file_summaries, process_diffs_only)
         return [{'PR #': pr_number, 'Summary': pr_summary_content}]
 
-    async def _summarize_file(self, file, process_diffs_only: bool, compress_response: bool = False) -> str:
+    def _summarize_file(self, file, process_diffs_only: bool, pr_summary: bool = False) -> str:
         """
-        Summarizes a file's content, with optional code minimization.
+        Asynchronously summarizes a file's content, optionally applying code minimization
+        to enhance the efficiency of the summary produced by GPT.
+
+        Args:
+            file: The file object containing details like 'patch', 'content', and 'file_type'.
+            process_diffs_only (bool): Flag indicating whether to summarize diff content only.
+            pr_summary (bool): Flag indicating whether the summary is part of a larger PR summary,
+                               which might necessitate a more condensed format.
+
+        Returns:
+            str: The summarized content as a string.
         """
         text_to_summarize = file.get('patch', '') if process_diffs_only else file['content']
-        if compress_response:
+        diff_indicator = ("This is a diff so treat '+' as additions and '-' as subtractions."
+                          if process_diffs_only else "This is a full file, not a diff.")
+
+        if pr_summary:
+            prompt = (f"Summarize this file from a PR in the most condensed format that GPT can understand, "
+                      f"combining it into a readable format for all files in a GitHub pull request. "
+                      f"{diff_indicator} Use shorthand or minimize to use the least amount of tokens if necessary.")
             parser = get_parser_for_language(file.get('file_type', 'Plain text'))
             text_to_summarize = self._minimize_content(parser, text_to_summarize)
-        prompt = f"Summarize this file from a PR. {'Compress if possible.' if compress_response else ''}"
-        summary_response = await self.openai_integration.summarize_text(text_to_summarize, prompt)
-        return summary_response['choices'][0]['message']['content']
+        else:
+            prompt = f"Summarize this file from a PR. {diff_indicator}"
 
-    async def review_pull_request(self, pr_number: int, process_diffs_only: bool = False):
+        summary_response = self.openai_integration.summarize_text(text_to_summarize, prompt)
+
+        return summary_response['choices'][0]['text']
+
+    def review_pull_request(self, pr_number: int, process_diffs_only: bool = False):
         """
         Processes a single pull request by summarizing and reviewing each file within it.
 
@@ -91,11 +117,11 @@ class PRProcessor:
             pr_number: The number of the pull request to process.
             process_diffs_only: Indicates whether to consider only the diffs of the files for processing.
         """
-        files = await self.gh_client.fetch_files_from_pr(pr_number)
+        files = self.gh_client.fetch_files_from_pr(pr_number)
         for file in files:
-            await self.process_file(file, pr_number, process_diffs_only)
+            self.process_file(file, pr_number, process_diffs_only)
 
-    async def review_all_open_pull_requests(self, process_diffs_only: bool = False) -> str:
+    def review_all_open_pull_requests(self, process_diffs_only: bool = False) -> str:
         """
         Processes all open pull requests in the repository by summarizing and reviewing each file within them.
 
@@ -108,12 +134,12 @@ class PRProcessor:
         Returns:
             A simple confirmation message indicating the completion of the operation.
         """
-        open_prs = await self.gh_client.fetch_open_pull_requests()
+        open_prs = self.gh_client.fetch_open_pull_requests()
         for pr in open_prs:
-            await self.review_pull_request(pr.number, process_diffs_only)
+            self.review_pull_request(pr.number, process_diffs_only)
         return 'OK'
 
-    async def process_file(self, file, pr_number, process_diffs_only: bool = False):
+    def process_file(self, file, pr_number, process_diffs_only: bool = False):
         """
         Processes a single file from a pull request by generating a summary and a code review,
         then formats and posts the combined content as a comment on the pull request.
@@ -123,10 +149,13 @@ class PRProcessor:
             pr_number: The pull request number to which the file belongs.
             process_diffs_only: Indicates whether to consider only the diffs of the file for processing.
         """
-        summary_content = await self._summarize_file(file, process_diffs_only)
-        review_content = await self._review_code(file, process_diffs_only)
+        if (process_diffs_only and not file['patch']) or not file['content']:
+            return
+
+        summary_content = self._summarize_file(file, process_diffs_only)
+        review_content = self._review_code(file, process_diffs_only)
         comment_to_post = self._format_comment(file, summary_content, review_content, process_diffs_only)
-        await self.gh_client.post_comment_on_pr(pr_number, comment_to_post)
+        self.gh_client.post_comment_on_pr(pr_number, comment_to_post)
 
     def _minimize_content(self, parser, content: str) -> str:
         """
@@ -137,7 +166,7 @@ class PRProcessor:
         except NotImplementedError:
             return content
 
-    async def _create_comprehensive_summary(self, combined_file_summaries: str, process_diffs_only: bool) -> str:
+    def _create_comprehensive_summary(self, combined_file_summaries: str, process_diffs_only: bool) -> str:
         """
         Creates a comprehensive summary from combined file summaries.
         """
@@ -145,17 +174,17 @@ class PRProcessor:
             "Create a comprehensive summary based on individual file summaries from this PR. "
             "Summarize the overall impact of the PR, highlighting key additions, deletions, and modifications."
         )
-        summary_response = await self.openai_integration.summarize_text(combined_file_summaries, prompt)
-        return summary_response['choices'][0]['message']['content']
+        summary_response = self.openai_integration.summarize_text(combined_file_summaries, prompt)
+        return summary_response['choices'][0]['text']
 
-    async def _review_code(self, file, process_diffs_only: bool) -> str:
+    def _review_code(self, file, process_diffs_only: bool) -> str:
         """
         Reviews the code of a file.
         """
         code_to_review = file.get('patch', '') if process_diffs_only else file['content']
         language = file.get('file_type', 'Plain text')
-        review_response = await self.openai_integration.review_code(code_to_review, language, process_diffs_only)
-        return review_response['choices'][0]['message']['content']
+        review_response = self.openai_integration.review_code(code_to_review, language, process_diffs_only)
+        return review_response['choices'][0]['text']
 
     def _format_comment(self, file, summary_content: str, review: str, process_diffs_only: bool) -> str:
         """

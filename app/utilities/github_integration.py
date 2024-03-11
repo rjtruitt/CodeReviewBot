@@ -114,6 +114,7 @@ class GitHubIntegration:
 
         file_details = [{
             'filename': file.filename,
+            'content': self._get_decoded_contents(pr, file),
             'patch': file.patch,
             'language': detect_language(file.filename),
             'additions': file.additions,
@@ -121,9 +122,13 @@ class GitHubIntegration:
             'changes': file.changes,
             'status': file.status,
             'url': file.contents_url
-        } for file in files]
+        } for file in files if file.status != 'removed']
 
         return file_details
+
+    def _get_decoded_contents(self, pr, file):
+        file_content = self.repository.get_contents(file.filename, ref=pr.head.sha).content
+        return b64decode(file_content).decode('utf-8')
 
     def post_comment_on_pr(self, pr_number, comment):
         """
