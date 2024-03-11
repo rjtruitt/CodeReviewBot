@@ -12,6 +12,7 @@
 - [ ] Add ability to return code review to rest request instead of github comments
 - [ ] Automatically generate a list of summarized changes in a PR for changelog
 - [ ] Create technical design documentation from a PR or entire project
+- [ ] Investigate hugging face transformers library and try CodeBERT or another model for offline code review outside of ChatGPT
 
 # Code Review Bot
 
