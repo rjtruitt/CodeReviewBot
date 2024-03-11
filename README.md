@@ -1,6 +1,7 @@
 # To-Do List
 
 - [ ] Add MongoDB to hold config items
+- [ ] Implement basic auth and/or oauth support or API Key for fastAPI endpoints
 - [ ] Add GitHub Action support
 - [ ] Figure out a way to make Git hooks interact with this
 - [ ] Have comments added directly to the file commits in the PR instead of PR conversation
