@@ -9,6 +9,7 @@
 - [ ] Add swagger endpoint to specifically review a single file in a PR
 - [ ] Work on code_parser to parse out methods from other languages
 - [ ] Add support for chunking large files and still getting decent reviews
+- [ ] Add ability to return code review to rest request instead of github comments
 
 # Code Review Bot
 
