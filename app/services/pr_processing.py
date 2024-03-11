@@ -23,6 +23,9 @@ class PRProcessor:
         self.gh_client = GitHubIntegration(user_login=user_login, repo_full_name=repo_full_name)
         self.openai_integration = OpenAIIntegration(model=gpt_model)
 
+    # TODO: add an attribute that tries to compress the files code down instead of summary then summarize all code
+    # Also try to use compressed code and structure for an architectural review as and possibly flow diagram
+
     def generate_pr_summary(self, pr_number: int, process_diffs_only: bool = False) -> Dict:
         """
         Generates a summary for a specified pull request.
@@ -192,4 +195,5 @@ class PRProcessor:
         """
         filename = file['filename']
         language = file.get('file_type', 'Plain text')
-        return f'Filename: {filename}\nLanguage: {language}\nSummary:\n{summary_content}\n\nCode Review (diff={process_diffs_only}):\n{review}'
+        return f'Filename: {filename}\nModel: {self.openai_integration.model}\nLanguage: {language}\n' \
+               f'Summary:\n{summary_content}\n\nCode Review (diff={process_diffs_only}):\n{review}'

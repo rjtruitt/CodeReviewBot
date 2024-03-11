@@ -27,11 +27,7 @@ class OpenAIIntegration:
         Returns:
             dict: A dictionary containing the OpenAI API response.
         """
-        response = self.openai_client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": text}]
-        )
-        return self._parse_response(response)
+        return self._create_completion([{"role": "user", "content": text}])
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(3))
     def summarize_text(self, text, prompt_prefix="Summarize the following code. Not the prompt before the code."):
@@ -46,11 +42,7 @@ class OpenAIIntegration:
             dict: A dictionary containing the OpenAI API response.
         """
         prompt = f"{prompt_prefix}:\n\n{text}"
-        response = self.openai_client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return self._parse_response(response)
+        return self._create_completion([{"role": "user", "content": prompt}])
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(3))
     def review_code(self, code, language="Python", is_diff=False, temperature=0.7, max_tokens=2048):
@@ -68,14 +60,9 @@ class OpenAIIntegration:
             dict: A dictionary containing the OpenAI API response.
         """
         prompt = self._generate_code_review_prompt(code, language, is_diff)
-        response = self.openai_client.chat.completions.create(
-            model=self.model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        logger.debug(response)
-        return self._parse_response(response)
+        return self._create_completion([{"role": "user", "content": prompt}],
+                                           temperature=temperature, max_tokens=max_tokens)
+
 
     def _generate_code_review_prompt(self, code, language, is_diff):
         """
@@ -105,6 +92,18 @@ class OpenAIIntegration:
             prompt = prompt_template.format(prompt_prefix=prompt_prefix, language=language, code=code)
 
         return prompt
+
+    def _create_completion(self, messages, **kwargs):
+        try:
+            response = self.openai_client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                **kwargs
+            )
+            return self._parse_response(response)
+        except Exception as e:
+            logger.error(f"OpenAI API call failed: {e}")
+            raise
 
     def _parse_response(self, response):
         """
