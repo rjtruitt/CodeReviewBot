@@ -1,3 +1,15 @@
+# To-Do List
+
+- [ ] Add MongoDB to hold config items
+- [ ] Add GitHub Action support
+- [ ] Figure out a way to make Git hooks interact with this
+- [ ] Have comments added directly to the file commits in the PR instead of PR conversation
+- [ ] Implement Claude integration
+- [ ] Add API keys, use MongoDB to store them, for authentication
+- [ ] Add swagger endpoint to specifically review a single file in a PR
+- [ ] Work on code_parser to parse out methods from other languages
+- [ ] Add support for chunking large files and still getting decent reviews
+
 # Code Review Bot
 
 ## Overview
@@ -47,15 +59,6 @@ Refer to the provided `config.yml` example for detailed configuration options.
 1. Ensure the `operation_mode` in `config.yml` is set to `"daemon"`.
 2. Start the FastAPI server: `uvicorn app.main:app --host 0.0.0.0 --port 8080`
 3. Configure your GitHub repository to send webhook events to the service's URL.
-
-## Accessing Swagger Documentation
-
-You can explore the API endpoints and test them using the interactive Swagger UI documentation. Follow the steps below:
-
-1. Make sure the FastAPI application is running locally or deployed to a server.
-2. Open your web browser and navigate to the Swagger UI endpoint: http://localhost:8000/docs
-If you're running the application on a different port or domain, adjust the URL accordingly.
-3. You should see the Swagger UI interface, which provides a visual representation of the API endpoints and allows you to interact with them.
 
 #### With GitHub Actions:
 ##### Work in progress
