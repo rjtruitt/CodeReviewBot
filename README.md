@@ -10,6 +10,8 @@
 - [ ] Work on code_parser to parse out methods from other languages
 - [ ] Add support for chunking large files and still getting decent reviews
 - [ ] Add ability to return code review to rest request instead of github comments
+- [ ] Automatically generate a list of summarized changes in a PR for changelog
+- [ ] Create technical design documentation from a PR or entire project
 
 # Code Review Bot
 
