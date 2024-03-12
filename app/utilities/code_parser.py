@@ -1,7 +1,13 @@
+"""Module for parsing and minifying code across different programming languages."""
+
+from __future__ import annotations
+
 import ast
+
 import jsmin
-from app.config_loader import get_config
 from python_minifier import minify
+
+from app.config_loader import get_config
 
 
 class BaseParser:
@@ -45,7 +51,9 @@ class BaseParser:
         Raises:
             NotImplementedError: If the subclass does not implement this method.
         """
-        raise NotImplementedError("Parse functions method is not implemented for this language.")
+        raise NotImplementedError(
+            "Parse functions method is not implemented for this language."
+        )
 
 
 class PythonParser(BaseParser):
@@ -65,8 +73,11 @@ class PythonParser(BaseParser):
             list: A list of strings representing the parsed functions.
         """
         root = ast.parse(content)
-        return [ast.unparse(node) for node in ast.walk(root) if
-                isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        return [
+            ast.unparse(node)
+            for node in ast.walk(root)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ]
 
     def minify_code(self, content: str) -> str:
         """
@@ -111,7 +122,7 @@ def get_parser_for_language(language: str) -> BaseParser:
         BaseParser: An instance of the appropriate parser class for the specified language.
     """
     parsers = {
-        'Python': PythonParser(),
-        'JavaScript': JavascriptParser(),
+        "Python": PythonParser(),
+        "JavaScript": JavascriptParser(),
     }
     return parsers.get(language, BaseParser())

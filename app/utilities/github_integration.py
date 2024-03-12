@@ -1,5 +1,9 @@
-import os
+"""Module for GitHub integration, providing utilities to interact with GitHub repositories."""
+
+from __future__ import annotations
+
 import logging
+import os
 from base64 import b64decode
 
 from fastapi import HTTPException
@@ -9,7 +13,8 @@ from pygments.util import ClassNotFound
 from unidiff import PatchSet
 
 from app.config_loader import get_config
-from app.services.salesforce.salesforce_handler import detect_salesforce_language
+from app.services.salesforce.salesforce_handler import \
+    detect_salesforce_language
 
 logger = logging.getLogger(__name__)
 
@@ -39,25 +44,41 @@ def detect_language(filepath):
 
 
 class GitHubIntegration:
+    """
+    Handles interactions with GitHub repositories, including fetching pull requests,
+    commits, and posting comments.
+    """
+
     def __init__(self, user_login: str, repo_full_name: str, base_url: str = None):
+        """
+        Initializes GitHub integration with provided user login, repository name, and optional base URL.
+        """
         self.config = get_config()
         self.github_api_key = self._get_github_api_key(user_login, repo_full_name)
         try:
             if base_url:
-                self.github = Github(base_url=base_url, login_or_token=self.github_api_key)
+                self.github = Github(
+                    base_url=base_url, login_or_token=self.github_api_key
+                )
             else:
                 self.github = Github(login_or_token=self.github_api_key)
             self.repository = self.github.get_repo(repo_full_name)
         except UnknownObjectException:
-            raise HTTPException(status_code=404, detail=f"Repository {repo_full_name} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Repository {repo_full_name} not found"
+            )
         except GithubException as e:
             raise HTTPException(status_code=e.status, detail=str(e))
 
     def _get_github_api_key(self, user_login: str, repo_full_name: str) -> str:
         # Logic to get the GitHub API key
-        api_key = (self.config.get('user_keys', {}).get(user_login, {}).get('api_key') or
-                   self.config.get('repo_owner_keys', {}).get(repo_full_name.split('/')[0], {}).get('api_key') or
-                   self.config['github']['default_api_key'])
+        api_key = (
+            self.config.get("user_keys", {}).get(user_login, {}).get("api_key")
+            or self.config.get("repo_owner_keys", {})
+            .get(repo_full_name.split("/")[0], {})
+            .get("api_key")
+            or self.config["github"]["default_api_key"]
+        )
         if not api_key:
             raise ValueError("No GitHub API key found for integration")
         return api_key
@@ -70,7 +91,7 @@ class GitHubIntegration:
             List of open pull requests.
         """
         logger.info("Fetching open PRs from: %s", self.repository.full_name)
-        return self.repository.get_pulls(state='open')
+        return self.repository.get_pulls(state="open")
 
     def fetch_pull_request(self, pr_number):
         """
@@ -112,23 +133,29 @@ class GitHubIntegration:
         pr = self.fetch_pull_request(pr_number)
         files = pr.get_files()
 
-        file_details = [{
-            'filename': file.filename,
-            'content': self._get_decoded_contents(pr, file),
-            'patch': file.patch,
-            'language': detect_language(file.filename),
-            'additions': file.additions,
-            'deletions': file.deletions,
-            'changes': file.changes,
-            'status': file.status,
-            'url': file.contents_url
-        } for file in files if file.status != 'removed']
+        file_details = [
+            {
+                "filename": file.filename,
+                "content": self._get_decoded_contents(pr, file),
+                "patch": file.patch,
+                "language": detect_language(file.filename),
+                "additions": file.additions,
+                "deletions": file.deletions,
+                "changes": file.changes,
+                "status": file.status,
+                "url": file.contents_url,
+            }
+            for file in files
+            if file.status != "removed"
+        ]
 
         return file_details
 
     def _get_decoded_contents(self, pr, file):
-        file_content = self.repository.get_contents(file.filename, ref=pr.head.sha).content
-        return b64decode(file_content).decode('utf-8')
+        file_content = self.repository.get_contents(
+            file.filename, ref=pr.head.sha
+        ).content
+        return b64decode(file_content).decode("utf-8")
 
     def post_comment_on_pr(self, pr_number, comment):
         """
@@ -175,9 +202,19 @@ class GitHubIntegration:
             patch_set = PatchSet(diff.patch)
             for patched_file in patch_set:
                 file_changes = {
-                    'filename': patched_file.path,
-                    'added_lines': [line.value for hunk in patched_file for line in hunk if line.is_added],
-                    'modified_lines': [line.value for hunk in patched_file for line in hunk if line.is_modified]
+                    "filename": patched_file.path,
+                    "added_lines": [
+                        line.value
+                        for hunk in patched_file
+                        for line in hunk
+                        if line.is_added
+                    ],
+                    "modified_lines": [
+                        line.value
+                        for hunk in patched_file
+                        for line in hunk
+                        if line.is_modified
+                    ],
                 }
                 changed_files.append(file_changes)
 
@@ -198,11 +235,8 @@ class GitHubIntegration:
         file_details = []
         for content in contents:
             if content.type == "file":
-                file_content = b64decode(content.content).decode('utf-8')
-                file_details.append({
-                    'name': content.name,
-                    'content': file_content
-                })
+                file_content = b64decode(content.content).decode("utf-8")
+                file_details.append({"name": content.name, "content": file_content})
         return file_details
 
     def fetch_repo_info(self):

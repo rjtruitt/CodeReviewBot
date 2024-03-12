@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import pytest
-from app.code_parser import PythonParser, JavascriptParser
+
+from app.code_parser import JavascriptParser, PythonParser
 
 
 class TestParsers:

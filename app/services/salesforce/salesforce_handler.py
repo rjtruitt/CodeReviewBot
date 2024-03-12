@@ -1,7 +1,11 @@
+"""Module for handling Salesforce-specific operations, including language detection and code reviews."""
+
+from __future__ import annotations
+
 import os
 
 
-def detect_salesforce_language(filepath):
+def detect_salesforce_language(filepath: str) -> str | None:
     """
     Detects the Salesforce-specific programming language or file type for a given file
     based on directory structure and file extension.
@@ -10,39 +14,39 @@ def detect_salesforce_language(filepath):
         filepath (str): Full path to the file.
 
     Returns:
-        str: Detected Salesforce programming language or file type, or None if not a Salesforce file.
+        str | None: Detected Salesforce programming language or file type,
+                    or None if not a Salesforce file.
     """
     directory = os.path.dirname(filepath)
     filename = os.path.basename(filepath)
-    directory_parts = directory.split('/')
+    directory_parts = directory.split("/")  # github uses /
     # Ensure we are within a Salesforce project
-    if 'force-app' in directory_parts:
-        # Salesforce LWC Jest Test
-        if '__tests__' in directory_parts and filename.endswith('.js'):
-            return "Salesforce LWC Jest Test"
-        # Salesforce LWC
-        elif 'lwc' in directory_parts and (filename.endswith('.js') or filename.endswith('.html')):
-            return "Salesforce LWC"
-        # Salesforce Apex
-        elif filename.endswith('.cls') or filename.endswith('.trigger'):
-            return "Salesforce Apex"
-        # Salesforce Aura Components
-        elif 'aura' in directory_parts and (filename.endswith('.cmp') or filename.endswith('.app') or filename.endswith(
-                '.evt') or filename.endswith('.intf')):
-            return "Salesforce Aura Component"
-        # Salesforce Visualforce
-        elif filename.endswith('.page') or filename.endswith('.component'):
-            return "Salesforce Visualforce"
-        # Salesforce Metadata XML
-        elif filename.endswith('.xml'):
-            return "Salesforce Metadata XML"
-        # Other Salesforce-related files (static resources, labels, etc.)
-        else:
-            return "Salesforce Other"
-    return None
+    file_type = None
+    if "force-app" in directory_parts:
+        file_type = "Salesforce Other"
+        if "__tests__" in directory_parts and filename.endswith(".js"):
+            file_type = "Salesforce LWC Jest Test"
+        if "lwc" in directory_parts and (
+            filename.endswith(".js") or filename.endswith(".html")
+        ):
+            file_type = "Salesforce LWC"
+        if filename.endswith(".cls") or filename.endswith(".trigger"):
+            file_type = "Salesforce Apex"
+        if "aura" in directory_parts and (
+            filename.endswith(".cmp")
+            or filename.endswith(".app")
+            or filename.endswith(".evt")
+            or filename.endswith(".intf")
+        ):
+            file_type = "Salesforce Aura Component"
+        if filename.endswith(".page") or filename.endswith(".component"):
+            file_type = "Salesforce Visualforce"
+        if filename.endswith(".xml"):
+            file_type = "Salesforce Metadata XML"
+    return file_type
 
 
-lwc_code_prompt = """Review the provided Salesforce LWC code for adherence to coding standards. Focus on:
+LWC_CODE_PROMPT = """Review the provided Salesforce LWC code for adherence to coding standards. Focus on:
 Class Name & Variable Declaration: CamelCase for class name, use let or const for variable declaration.
 Constants & Naming Convention: UPPERCASE with underscores for constants, verify naming conventions.
 Method Declaration & Braces Style: camelCase for method names, ensure Stroustrup braces style.
@@ -53,7 +57,7 @@ Method Access Specifiers: Consistent method access specifiers.
 Provide snippets highlighting violations with the existing code and suggest corrections for each aspect.
 """
 
-lwc_test_code_prompt = """Review Salesforce LWC test code for standards adherence.  Focus on:
+LWC_TEST_CODE_PROMPT = """Review Salesforce LWC test code for standards adherence.  Focus on:
 - File Structure: `__tests__` in root/src or alongside in force-app, exclude from `.forceignore`.
 - Naming: Kebab-case tests, `.test.js` suffix.
 - Test Structure: Imports order (Salesforce -> custom -> Apex), mocks after imports, `describe` starts, `afterEach` clears, separate `createElement` per scenario.
@@ -68,7 +72,7 @@ lwc_test_code_prompt = """Review Salesforce LWC test code for standards adherenc
 Provide snippets highlighting violations with the existing code and suggest corrections for each aspect.
 """
 
-apex_code_prompt = """Review Salesforce Apex code below for standards adherence.  Focus on:
+APEX_CODE_PROMPT = """Review Salesforce Apex code below for standards adherence.  Focus on:
 - Braces: Stroustrup style with no line breaks before the opening brace and a line break after the closing brace.
 - Indentation: 4 spaces, limit to 100 columns.
 - Whitespace: Around {, operators, ,.
@@ -90,7 +94,7 @@ apex_code_prompt = """Review Salesforce Apex code below for standards adherence.
 Provide snippets highlighting violations with the existing code and suggest corrections for each aspect.
 """
 
-apex_test_prompt = """Review Salesforce Apex test code for standards adherence. Focus on:
+APEX_TEST_PROMPT = """Review Salesforce Apex test code for standards adherence. Focus on:
 - Naming: CamelCase for test classes, lowerCamelCase for test methods, UPPER_CASE for constants.
 - Test Structure: Arrange-Act-Assert pattern, clear setup and teardown.
 - Assertions: Use System.assert methods, avoid redundant assertions.
@@ -106,13 +110,13 @@ apex_test_prompt = """Review Salesforce Apex test code for standards adherence. 
 Provide snippets highlighting violations with the existing code and suggest corrections for each aspect.
 """
 
-sf_language_to_prompt = {
-    "Salesforce LWC": lwc_code_prompt,
-    "Salesforce LWC Jest Test": lwc_test_code_prompt,
-    "Salesforce Apex": apex_code_prompt,
-    "Salesforce Apex Test": apex_test_prompt,
+SF_LANGUAGE_TO_PROMPT = {
+    "Salesforce LWC": LWC_CODE_PROMPT,
+    "Salesforce LWC Jest Test": LWC_TEST_CODE_PROMPT,
+    "Salesforce Apex": APEX_CODE_PROMPT,
+    "Salesforce Apex Test": APEX_TEST_PROMPT,
     "Salesforce Aura Component": "",
     "Salesforce Visualforce": "",
     "Salesforce Metadata XML": "",
-    "Salesforce Other": ""
+    "Salesforce Other": "",
 }

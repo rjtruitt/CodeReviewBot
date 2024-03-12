@@ -1,30 +1,31 @@
+"""Module defining Pydantic models for GitHub webhook payloads."""
+
+from __future__ import annotations
+
 from pydantic import BaseModel
-from typing import Dict, Optional
 
 
 class GitHubWebhookPayload(BaseModel):
-    repository: Dict[str, str]
-    sender: Dict[str, str]
-    pull_request: Dict[str, int]
+    """Defines the structure of a GitHub webhook payload."""
+
+    repository: dict[str, str]
+    sender: dict[str, str]
+    pull_request: dict[str, int]
 
 
 class GithubComment(BaseModel):
+    """Represents a comment on a GitHub pull request."""
+
     repository_name: str
-    user_login: Optional[str] = None
+    user_login: str | None = None
     pr_num: int
     comment: str
 
 
 class FullRepoReview(BaseModel):
-    """
-    Represents a full repository review.
+    """Represents a request for a full repository review."""
 
-    - repository_name: Name of the repository.
-    - gpt_model: The GPT model used for analysis. Defaults to "gpt-3.5-turbo".
-    - user_login: Optional GitHub user login for user-specific analysis.
-    - process_diffs_only: Whether to process diffs only. Defaults to False.
-    """
     repository_name: str
-    gpt_model: Optional[str] = "gpt-3.5-turbo"
-    user_login: Optional[str] = None
-    process_diffs_only: Optional[bool] = False
+    gpt_model: str | None = "gpt-3.5-turbo"
+    user_login: str | None = None
+    process_diffs_only: bool | None = False
