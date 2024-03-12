@@ -86,15 +86,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: '3.8'
-      
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-      
+
       - name: Run Code Review Bot
         run: python actions/action_main.py ${{ github.workspace }} ${{ github.repository }} ${{ github.event.pull_request.number }} ${{ secrets.GITHUB_TOKEN }}

@@ -1,19 +1,25 @@
+"""Module for integrating with OpenAI API to generate text summaries and review code."""
+
+from __future__ import annotations
+
 import logging
 
 import openai
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 
 from app.config_loader import get_config
-from app.services.salesforce.salesforce_handler import sf_language_to_prompt
+from app.services.salesforce.salesforce_handler import SF_LANGUAGE_TO_PROMPT
 
 logger = logging.getLogger(__name__)
 
 
 class OpenAIIntegration:
+    """Provides integration with OpenAI's API for text generation and code review."""
+
     def __init__(self, api_key: str = None, model: str = None):
         self.config = get_config()
-        self.api_key = api_key or self.config['openai']['api_key']
-        self.model = model or self.config['openai']['default_model']
+        self.api_key = api_key or self.config["openai"]["api_key"]
+        self.model = model or self.config["openai"]["default_model"]
         self.openai_client = openai.OpenAI(api_key=self.api_key)
 
     def gpt_prompt(self, text):
@@ -30,7 +36,11 @@ class OpenAIIntegration:
         return self._create_completion([{"role": "user", "content": text}])
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(3))
-    def summarize_text(self, text, prompt_prefix="Summarize the following code. Not the prompt before the code."):
+    def summarize_text(
+        self,
+        text,
+        prompt_prefix="Summarize the following code. Not the prompt before the code.",
+    ):
         """
         Generate a summary for the provided text using the OpenAI API.
 
@@ -45,24 +55,32 @@ class OpenAIIntegration:
         return self._create_completion([{"role": "user", "content": prompt}])
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(3))
-    def review_code(self, code, language="Python", is_diff=False, temperature=0.7, max_tokens=2048):
+    def review_code(self, code, **kwargs):
         """
         Generate a code review for the provided code snippet using the OpenAI API.
 
         Args:
             code (str): The code snippet to review.
-            language (str): The programming language of the code.
-            is_diff (bool): Indicates if the code snippet is a diff.
-            temperature (float): Controls the randomness of the output.
-            max_tokens (int): The maximum number of tokens to generate.
+            **kwargs: Additional keyword arguments including:
+                - language (str): The programming language of the code.
+                - is_diff (bool): Indicates if the code snippet is a diff.
+                - temperature (float): Controls the randomness of the output.
+                - max_tokens (int): The maximum number of tokens to generate.
 
         Returns:
             dict: A dictionary containing the OpenAI API response.
         """
-        prompt = self._generate_code_review_prompt(code, language, is_diff)
-        return self._create_completion([{"role": "user", "content": prompt}],
-                                           temperature=temperature, max_tokens=max_tokens)
+        language = kwargs.get("language", "Python")
+        is_diff = kwargs.get("is_diff", False)
+        temperature = kwargs.get("temperature", 0.7)
+        max_tokens = kwargs.get("max_tokens", 2048)
 
+        prompt = self._generate_code_review_prompt(code, language, is_diff)
+        return self._create_completion(
+            [{"role": "user", "content": prompt}],
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
 
     def _generate_code_review_prompt(self, code, language, is_diff):
         """
@@ -77,32 +95,44 @@ class OpenAIIntegration:
             str: The generated prompt for the OpenAI API.
         """
         if language.startswith("Salesforce"):
-            prompt_prefix = sf_language_to_prompt.get(language, "")
-            diff_prefix = "This is a diff from GitHub with lines prefixed with + for additions and - for deletions." if is_diff else "This is a full file from a Pull Request."
+            prompt_prefix = SF_LANGUAGE_TO_PROMPT.get(language, "")
+            diff_prefix = (
+                "This is a diff from GitHub with lines prefixed with + for additions and - for deletions."
+                if is_diff
+                else "This is a full file from a Pull Request."
+            )
             prompt = f"{diff_prefix}\n{prompt_prefix}\nCode:\n{code}"
         else:
-            prompt_prefix = "This is a diff from GitHub with lines prefixed with + for additions and - for deletions." if is_diff else "This is a full file from a Pull Request."
-            prompt_template = self.config.get("languages", {}).get(language, {}).get(
-                "prompt_template",
-                "{prompt_prefix} It is written in {language}. Review it for readability, maintainability, "
-                "security, and best practices. Highlight areas for improvement or potential bugs, suggesting "
-                "specific changes or alternatives. Provide practical, actionable advice, focusing on "
-                "idiomatic responses and code snippets where applicable.\n\n{code}"
+            prompt_prefix = (
+                "This is a diff from GitHub with lines prefixed with + for additions and - for deletions."
+                if is_diff
+                else "This is a full file from a Pull Request."
             )
-            prompt = prompt_template.format(prompt_prefix=prompt_prefix, language=language, code=code)
+            prompt_template = (
+                self.config.get("languages", {})
+                .get(language, {})
+                .get(
+                    "prompt_template",
+                    "{prompt_prefix} It is written in {language}. Review it for readability, maintainability, "
+                    "security, and best practices. Highlight areas for improvement or potential bugs, suggesting "
+                    "specific changes or alternatives. Provide practical, actionable advice, focusing on "
+                    "idiomatic responses and code snippets where applicable.\n\n{code}",
+                )
+            )
+            prompt = prompt_template.format(
+                prompt_prefix=prompt_prefix, language=language, code=code
+            )
 
         return prompt
 
     def _create_completion(self, messages, **kwargs):
         try:
             response = self.openai_client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                **kwargs
+                model=self.model, messages=messages, **kwargs
             )
             return self._parse_response(response)
         except Exception as e:
-            logger.error(f"OpenAI API call failed: {e}")
+            logger.error("OpenAI API call failed: %s", e)
             raise
 
     def _parse_response(self, response):
@@ -119,9 +149,12 @@ class OpenAIIntegration:
             "id": response.id,
             "created": response.created,
             "model": response.model,
-            "choices": [{
-                "text": choice.message.content,
-                "index": choice.index,
-                "finish_reason": choice.finish_reason
-            } for choice in response.choices]
+            "choices": [
+                {
+                    "text": choice.message.content,
+                    "index": choice.index,
+                    "finish_reason": choice.finish_reason,
+                }
+                for choice in response.choices
+            ],
         }
